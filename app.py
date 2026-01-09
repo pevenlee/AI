@@ -234,8 +234,40 @@ def inject_custom_css():
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
         .stApp { background-color: #F8F9FC; font-family: 'Inter', -apple-system, "Microsoft YaHei", sans-serif; }
-        #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
         
+        /* =================================================================
+           🔥 强力隐藏 Streamlit 原生 UI 元素 (Manage App / Deploy / Menu)
+           ================================================================= */
+        
+        /* 1. 隐藏右上角汉堡菜单 */
+        #MainMenu {visibility: hidden; display: none;}
+        
+        /* 2. 隐藏底部 "Made with Streamlit" */
+        footer {visibility: hidden; display: none;}
+        
+        /* 3. 隐藏顶部彩色装饰条 */
+        header {visibility: hidden; display: none;}
+        
+        /* 4. 核心：隐藏 "Manage app" 按钮和工具栏 */
+        [data-testid="stToolbar"] {
+            visibility: hidden !important; 
+            display: none !important;
+            height: 0px !important;
+        }
+        
+        /* 5. 隐藏可能出现的浮动部署按钮 */
+        .stDeployButton {
+            visibility: hidden !important; 
+            display: none !important;
+        }
+        
+        /* 6. 隐藏右上角的运行状态动画 (Running Man) */
+        [data-testid="stStatusWidget"] {
+            visibility: hidden !important;
+        }
+        
+        /* ================================================================= */
+
         .header-container {
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
             padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
@@ -671,5 +703,6 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
 
 
