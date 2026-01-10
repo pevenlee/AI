@@ -345,7 +345,6 @@ def render_header_nav():
     <div class="fixed-header-container">
         <div class="nav-left">
             {logo_img_tag}
-            <div class="nav-brand-text">医药魔方</div>
         </div>
         <div class="nav-center">
             <div class="nav-item">HCM</div> 
@@ -708,6 +707,7 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
 
 
 
