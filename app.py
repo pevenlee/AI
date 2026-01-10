@@ -315,7 +315,7 @@ if os.path.exists(LOGO_FILE):
 st.markdown(f"""
     <div class="header-container">
         {logo_html}
-        <div class="header-title">ChatBI (Lite)</div>
+        <div class="header-title">ChatBI</div>
         <div style="flex-grow: 1;"></div>
         <div class="header-meta">数据源: {FIXED_FILE_NAME}</div>
     </div>
@@ -662,4 +662,5 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
 
