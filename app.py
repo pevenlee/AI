@@ -22,23 +22,103 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 修改为从 secrets 读取
+# --- 核心 CSS 注入 (隐藏 UI 元素) ---
+def inject_custom_css():
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        .stApp { background-color: #F8F9FC; font-family: 'Inter', -apple-system, "Microsoft YaHei", sans-serif; }
+        
+        /* 1. 彻底移除顶部 Header */
+        header[data-testid="stHeader"] { display: none !important; visibility: hidden !important; }
+        
+        /* 2. 移除右上角工具栏 (Manage App 按钮) */
+        [data-testid="stToolbar"] { display: none !important; visibility: hidden !important; height: 0 !important; }
+        
+        /* 3. 移除底部 footer */
+        footer { display: none !important; }
+        
+        /* 4. 消除顶部留白 */
+        .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
+
+        /* 5. 隐藏运行状态图标 */
+        [data-testid="stStatusWidget"] { visibility: hidden !important; }
+
+        /* UI 组件样式 */
+        .header-container {
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
+            padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
+            margin-bottom: 20px; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.6);
+        }
+        .header-logo-img { height: 32px; margin-right: 12px; width: auto; }
+        .header-title {
+            color: #0F172A; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #0F172A 0%, #334155 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .header-meta {
+            color: #64748B; font-size: 12px; font-family: 'JetBrains Mono', monospace;
+            background: #F1F5F9; padding: 4px 10px; border-radius: 6px; margin-left: 10px;
+        }
+        div.stButton > button {
+            border: 1px solid #E2E8F0; background-color: #FFFFFF; color: #1E293B;
+            border-radius: 8px; padding: 15px 20px; font-size: 14px; font-weight: 500;
+            transition: all 0.2s; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        div.stButton > button:hover {
+            border-color: #3B82F6; color: #3B82F6; background-color: #F0F9FF;
+            transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+        .summary-box {
+            background-color: #F8FAFC; padding: 20px; border-radius: 8px;
+            border: 1px solid #E2E8F0; border-left: 4px solid #10B981; margin-bottom: 20px;
+        }
+        .summary-title { font-weight: 600; color: #059669; font-size: 14px; margin-bottom: 12px; }
+        .summary-list li { margin-bottom: 8px; font-size: 14px; color: #334155; display: flex; }
+        .summary-label { min-width: 60px; color: #64748B; font-size: 12px; font-weight: 500; }
+        .tech-card {
+            background-color: white; padding: 24px; border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;
+            border: 1px solid #E2E8F0; transition: all 0.2s ease-in-out;
+        }
+        .tech-card:hover { transform: translateY(-2px); border-color: #CBD5E1; }
+        .angle-title { font-size: 16px; font-weight: 700; color: #1E293B; margin-bottom: 6px; }
+        .angle-desc { color: #64748B; font-size: 13px; margin-bottom: 15px; line-height: 1.5; }
+        .mini-insight {
+            background-color: #F1F5F9; padding: 12px 16px; border-radius: 6px;
+            font-size: 13px; color: #475569; margin-top: 15px; border-left: 3px solid #94A3B8; line-height: 1.6;
+        }
+        .insight-box {
+            background: white; padding: 24px; border-radius: 12px; position: relative;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;
+        }
+        .insight-box::before {
+            content: ''; position: absolute; left: 0; top: 12px; bottom: 12px;
+            width: 4px; background: linear-gradient(180deg, #3B82F6 0%, #06B6D4 100%);
+            border-radius: 0 4px 4px 0;
+        }
+        .step-header {
+            font-weight: 700; color: #1E293B; font-size: 16px; margin-top: 35px; 
+            margin-bottom: 20px; display: flex; align-items: center;
+        }
+        .step-header::before {
+            content: ''; display: inline-block; width: 4px; height: 18px;
+            background: #3B82F6; margin-right: 12px; border-radius: 2px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+inject_custom_css()
+
+# --- 配置读取 ---
 try:
     FIXED_API_KEY = st.secrets["GENAI_API_KEY"]
 except:
-    FIXED_API_KEY = "" # 防止本地运行时报错
+    FIXED_API_KEY = "" # 本地调试用空值
 
-# 【这里填你的 Excel 文件名】
 FIXED_FILE_NAME = "hcmdata.xlsx" 
-
-# 【Logo 文件名】
 LOGO_FILE = "logo.png"
 
-# 【代理设置】
-# PROXY_URL = "http://127.0.0.1:10809"
-
-# 【限制设置】
-PREVIEW_ROW_LIMIT = 500   # 纯表模式下可以适当增加预览行数
+PREVIEW_ROW_LIMIT = 500
 EXPORT_ROW_LIMIT = 5000   
 
 # ================= 2. 核心逻辑函数 =================
@@ -46,15 +126,14 @@ EXPORT_ROW_LIMIT = 5000
 @st.cache_resource
 def get_client():
     if not FIXED_API_KEY: return None
-    # 注意：这里不需要 os.environ 设置代理了
     try:
         return genai.Client(api_key=FIXED_API_KEY, http_options={'api_version': 'v1beta'})
     except Exception as e:
         st.error(f"SDK 初始化失败: {e}")
         return None
 
-def safe_generate_content(client, model_name, contents, config=None, retries=6):
-    base_delay = 10 
+def safe_generate_content(client, model_name, contents, config=None, retries=3):
+    base_delay = 5 
     for i in range(retries):
         try:
             return client.models.generate_content(
@@ -66,9 +145,7 @@ def safe_generate_content(client, model_name, contents, config=None, retries=6):
             error_str = str(e)
             if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
                 if i < retries - 1:
-                    wait_time = base_delay * (2 ** i)
-                    st.toast(f"⏳ API 配额限制，正在深度等待 ({i+1}/{retries})...")
-                    time.sleep(wait_time)
+                    time.sleep(base_delay * (2 ** i))
                     continue
             raise e
 
@@ -83,6 +160,7 @@ def load_data():
         else:
             df = pd.read_excel(FIXED_FILE_NAME)
         df.columns = df.columns.str.strip()
+        # 简单的数据清洗
         for col in df.columns:
             if any(k in str(col) for k in ['额', '量', 'Sales', 'Qty', '金额']):
                 try:
@@ -227,124 +305,7 @@ def parse_response(text):
     except Exception: pass
     return reasoning, json_data
 
-# ================= 3. UI 样式 =================
-
-def inject_custom_css():
-    st.markdown("""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-        .stApp { background-color: #F8F9FC; font-family: 'Inter', -apple-system, "Microsoft YaHei", sans-serif; }
-        
-        /* =================================================================
-           🔥 强力隐藏 Streamlit 原生 UI 元素 (Manage App / Deploy / Menu)
-           ================================================================= */
-        
-        /* 1. 隐藏右上角汉堡菜单 */
-        #MainMenu {visibility: hidden; display: none;}
-        
-        /* 2. 隐藏底部 "Made with Streamlit" */
-        footer {visibility: hidden; display: none;}
-        
-        /* 3. 隐藏顶部彩色装饰条 */
-        header {visibility: hidden; display: none;}
-        
-        /* 4. 核心：隐藏 "Manage app" 按钮和工具栏 */
-        [data-testid="stToolbar"] {
-            visibility: hidden !important; 
-            display: none !important;
-            height: 0px !important;
-        }
-        
-        /* 5. 隐藏可能出现的浮动部署按钮 */
-        .stDeployButton {
-            visibility: hidden !important; 
-            display: none !important;
-        }
-        
-        /* 6. 隐藏右上角的运行状态动画 (Running Man) */
-        [data-testid="stStatusWidget"] {
-            visibility: hidden !important;
-        }
-        
-        /* ================================================================= */
-
-        .header-container {
-            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
-            padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
-            margin-bottom: 30px; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.6);
-        }
-        .header-logo-img { height: 32px; margin-right: 12px; width: auto; }
-        .header-title {
-            color: #0F172A; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;
-            background: linear-gradient(90deg, #0F172A 0%, #334155 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        .header-meta {
-            color: #64748B; font-size: 12px; font-family: 'JetBrains Mono', monospace;
-            background: #F1F5F9; padding: 4px 10px; border-radius: 6px; margin-left: 10px;
-        }
-        
-        div.stButton > button {
-            border: 1px solid #E2E8F0; background-color: #FFFFFF; color: #1E293B;
-            border-radius: 8px; padding: 15px 20px; font-size: 14px; font-weight: 500;
-            transition: all 0.2s; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        }
-        div.stButton > button:hover {
-            border-color: #3B82F6; color: #3B82F6; background-color: #F0F9FF;
-            transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-        }
-        
-        .summary-box {
-            background-color: #F8FAFC; padding: 20px; border-radius: 8px;
-            border: 1px solid #E2E8F0; border-left: 4px solid #10B981; margin-bottom: 20px;
-        }
-        .summary-title {
-            font-family: 'Microsoft YaHei', sans-serif; font-weight: 600; color: #059669; 
-            font-size: 14px; margin-bottom: 12px; letter-spacing: 0.5px;
-        }
-        .summary-list li { margin-bottom: 8px; font-size: 14px; color: #334155; display: flex; }
-        .summary-label { min-width: 60px; color: #64748B; font-size: 12px; font-weight: 500; margin-top: 2px; }
-        
-        .tech-card {
-            background-color: white; padding: 24px; border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;
-            border: 1px solid #E2E8F0; transition: all 0.2s ease-in-out;
-        }
-        .tech-card:hover {
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); transform: translateY(-2px); border-color: #CBD5E1;
-        }
-        .angle-title { font-size: 16px; font-weight: 700; color: #1E293B; margin-bottom: 6px; }
-        .angle-desc { color: #64748B; font-size: 13px; margin-bottom: 15px; line-height: 1.5; }
-        .mini-insight {
-            background-color: #F1F5F9; padding: 12px 16px; border-radius: 6px;
-            font-size: 13px; color: #475569; margin-top: 15px; border-left: 3px solid #94A3B8; line-height: 1.6;
-        }
-        .insight-box {
-            background: white; padding: 24px; border-radius: 12px; position: relative;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;
-        }
-        .insight-box::before {
-            content: ''; position: absolute; left: 0; top: 12px; bottom: 12px;
-            width: 4px; background: linear-gradient(180deg, #3B82F6 0%, #06B6D4 100%);
-            border-radius: 0 4px 4px 0;
-        }
-        .step-header {
-            font-weight: 700; color: #1E293B; font-size: 16px; margin-top: 35px; 
-            margin-bottom: 20px; display: flex; align-items: center;
-        }
-        .step-header::before {
-            content: ''; display: inline-block; width: 4px; height: 18px;
-            background: #3B82F6; margin-right: 12px; border-radius: 2px;
-        }
-        div[data-testid="stDataFrame"] { border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden; }
-        
-        .stop-btn-container button { border: 1px solid #EF4444 !important; color: #EF4444 !important; }
-        .stop-btn-container button:hover { background-color: #FEF2F2 !important; }
-        </style>
-    """, unsafe_allow_html=True)
-
 # ================= 4. 主界面逻辑 =================
-
-inject_custom_css()
 
 logo_html = ""
 if os.path.exists(LOGO_FILE):
@@ -368,6 +329,13 @@ if "is_interrupted" not in st.session_state:
     st.session_state.is_interrupted = False
 
 client = get_client()
+
+# 安全检查
+if not client:
+    st.warning("⚠️ 未检测到有效 API Key。")
+    st.info("请在 Streamlit 后台 Secrets 中配置 `GENAI_API_KEY`。")
+    st.stop()
+
 df = load_data()
 
 if df is not None:
@@ -404,12 +372,11 @@ if df is not None:
                         s = content['summary']
                         st.markdown(f"""
                         <div class="summary-box">
-                            <div class="summary-title">⚡ 取数执行协议 (Protocol)</div>
+                            <div class="summary-title">⚡ 取数执行协议</div>
                             <ul class="summary-list">
-                                <li><span class="summary-label">意图</span> <span class="summary-val">{s.get('intent', '-')}</span></li>
-                                <li><span class="summary-label">范围</span> <span class="summary-val">{s.get('scope', '-')}</span></li>
-                                <li><span class="summary-label">指标</span> <span class="summary-val">{s.get('metrics', '-')}</span></li>
-                                <li><span class="summary-label">逻辑</span> <span class="summary-val">{s.get('logic', '-')}</span></li>
+                                <li><span class="summary-label">意图</span> {s.get('intent', '-')}</li>
+                                <li><span class="summary-label">指标</span> {s.get('metrics', '-')}</li>
+                                <li><span class="summary-label">逻辑</span> {s.get('logic', '-')}</li>
                             </ul>
                         </div>
                         """, unsafe_allow_html=True)
@@ -422,11 +389,8 @@ if df is not None:
                             data_payload = {"查询结果": data_payload}
                         
                         for table_name, table_df in data_payload.items():
-                            if len(data_payload) > 1:
-                                st.markdown(f"**📄 {table_name}**")
-                            
+                            if len(data_payload) > 1: st.markdown(f"**📄 {table_name}**")
                             st.dataframe(format_df_for_display(table_df).head(PREVIEW_ROW_LIMIT), use_container_width=True)
-
                             csv = table_df.head(EXPORT_ROW_LIMIT).to_csv(index=False).encode('utf-8-sig')
                             st.download_button(f"📥 导出 ({table_name})", csv, f"{table_name}.csv", "text/csv", key=f"dl_simple_{msg_idx}_{table_name}")
                             if len(data_payload) > 1: st.markdown("---")
@@ -478,7 +442,7 @@ if df is not None:
         st.button("🚀 重新发送", on_click=submit_edit, type="primary")
 
     if not st.session_state.is_interrupted:
-        if query_input := st.chat_input("🔎 请输入问题 (例如：“查询康缘销量” 或 “分析增长趋势”)"):
+        if query_input := st.chat_input("🔎 请输入问题..."):
             st.session_state.last_query_draft = query_input
             st.session_state.messages.append({"role": "user", "type": "text", "content": query_input})
             st.rerun()
@@ -489,7 +453,7 @@ if df is not None:
         history_context_str = get_history_context(st.session_state.messages, turn_limit=3)
         stop_btn_placeholder = st.empty()
         
-        if stop_btn_placeholder.button("⏹️ 中止生成 (Stop)", type="primary", use_container_width=True):
+        if stop_btn_placeholder.button("⏹️ 中止生成", type="primary", use_container_width=True):
             st.session_state.is_interrupted = True; st.rerun()
 
         with st.chat_message("assistant"):
@@ -501,8 +465,8 @@ if df is not None:
                     基于用户当前问题："{current_query}" 以及历史上下文判断用户意图。
                     【历史上下文】:{history_context_str}
                     请将其分类为以下三类之一：
-                    1. "simple": 简单取数、排序、排名、计算基础指标（如增长率、同比）。
-                    2. "analysis": 开放式问题，寻求洞察、原因分析、市场格局等深度内容。
+                    1. "simple": 简单取数、排序、排名、计算基础指标。
+                    2. "analysis": 开放式问题，寻求洞察、原因分析、市场格局。
                     3. "irrelevant": 与数据完全无关的闲聊。
                     仅输出 JSON: {{"type": "simple" 或 "analysis" 或 "irrelevant"}}
                     """
@@ -519,29 +483,27 @@ if df is not None:
                 ytd_list_prior = time_context.get('ytd_list_prior')
 
                 if intent_type == 'irrelevant':
-                    st.warning("⚠️ 当前提问不在 ChatBI 覆盖范围内")
+                    st.warning("⚠️ 当前提问不在数据覆盖范围内")
                     st.session_state.messages.append({"role": "assistant", "type": "text", "content": "抱歉，当前提问与数据内容无关。"})
 
                 # ================= [Simple Mode] =================
                 elif intent_type == 'simple':
                     with st.spinner("⚡ 正在解析意图并生成代码..."):
                         simple_prompt = f"""
-                        你是一位 Pandas 数据处理专家，当被询问评价表现时，请尽可能结合时间、结合市场环境。用户需求："{current_query}"
+                        你是一位 Pandas 数据处理专家。用户需求："{current_query}"
                         【元数据】{meta_data}
                         【历史记录】{history_context_str}
-                        【时间上下文】MAT: {mat_list} (完整性: {is_mat_complete}), YTD: {ytd_list}
+                        【时间上下文】MAT: {mat_list}, YTD: {ytd_list}
                         
-                        【任务】
-                        1. 生成 `results` 字典：Key=表标题, Value=DataFrame。
-                        2. **严禁绘图**：不要生成任何 fig, plt, sns 相关代码。只处理数据。
-                        
-                        【严格约束】
-                        - 在代码内部定义所有列表/变量。
-                        - 结果必须是 DataFrame。
+                        【关键指令 - 这里的规则必须遵守】
+                        1. **唯一数据源**：环境中只有 `df`。不要假设存在 `df_sales`, `df_hainan` 等变量。
+                        2. **必须自行筛选**：如果需要特定维度（如海南、2023年），必须在代码中显式筛选。例如：`df_sub = df[df['省份']=='海南']`。
+                        3. **结果赋值**：将最终结果字典赋值给 `results`。
+                        4. **严禁绘图**。
                         
                         输出 JSON: {{ 
                             "summary": {{ "intent": "意图描述", "scope": "数据范围", "metrics": "指标", "logic": "计算逻辑" }}, 
-                            "code": "results = {{...}}" 
+                            "code": "df_sub = df[...]\nresults = {{'标题': df_sub}}" 
                         }}
                         """
                         simple_resp = safe_generate_content(
@@ -549,8 +511,9 @@ if df is not None:
                         )
                         simple_json = json.loads(simple_resp.text)
                         
+                        # 纯净的执行上下文，防止 AI 幻觉
                         execution_context = {
-                            'df': df, 'data': df, 'df_market': df, 'df_mat': df, 'df_ytd': df,
+                            'df': df, 
                             'pd': pd, 'np': np, 
                             'results': {}, 'result': None,
                             'current_mat': mat_list, 'mat_list': mat_list, 'prior_mat': mat_list_prior,
@@ -559,7 +522,6 @@ if df is not None:
                         exec(simple_json['code'], execution_context)
                         
                         final_results = execution_context.get('results')
-                        
                         if not final_results and execution_context.get('result') is not None:
                             final_results = {"查询结果": execution_context.get('result')}
                         
@@ -579,9 +541,7 @@ if df is not None:
                             
                             for table_name, table_df in formatted_results.items():
                                 if len(formatted_results) > 1: st.markdown(f"**📄 {table_name}**")
-                                
                                 st.dataframe(format_df_for_display(table_df).head(PREVIEW_ROW_LIMIT), use_container_width=True)
-
                                 csv = table_df.head(EXPORT_ROW_LIMIT).to_csv(index=False).encode('utf-8-sig')
                                 st.download_button(f"📥 导出 ({table_name})", csv, f"{table_name}.csv", "text/csv", key=f"dl_simple_{msg_idx}_{table_name}")
                                 if len(formatted_results) > 1: st.markdown("---")
@@ -592,26 +552,27 @@ if df is not None:
                             })
                         else:
                             st.error("未提取到数据")
-                            st.session_state.messages.append({"role": "assistant", "type": "text", "content": "抱歉，未提取到有效数据。"})
+                            st.session_state.messages.append({"role": "assistant", "type": "text", "content": "未提取到有效数据。"})
 
                 # ================= [Analysis Mode] =================
                 else:
                     with st.spinner("🧠 正在拆解问题..."):
                         prompt_plan = f"""
                         你是一位医药行业 BI 专家。请将问题："{current_query}" 拆解为 2-5 个分析角度。
-                        请结合竞争关系数据库，带入竞争对手视角进行分析。
-                        当被询问评价表现时，请尽可能结合时间动态地思考问题
+                        结合时间动态（MAT/YTD）和竞争视角进行分析。
+                        
                         【元数据】{meta_data}
                         【历史记录】{history_context_str}
-                        【时间上下文】MAT: {mat_list} (完整性: {is_mat_complete}), YTD: {ytd_list}
+                        【时间上下文】MAT: {mat_list}, YTD: {ytd_list}
                         
-                        【严格约束】
-                        0. **数据源变量名**：DataFrame 变量名为 `df`。
-                        1. **严禁绘图**：不要生成任何 fig, plt, sns 相关代码。只处理数据。
-                        2. **结果赋值**：最终的 DataFrame 必须赋值给变量 `result`。
-                        3. **语言**：所有分析思路、标题、描述必须使用**中文**。
+                        【关键指令 - 这里的规则必须遵守】
+                        0. **数据源唯一入口**：环境中**只有**一个名为 `df` 的 Pandas DataFrame。
+                        1. **严禁使用未定义变量**：绝对不要直接使用 `df_hainan`, `df_2023` 这种变量，除非你在代码中第一行先定义了它（例如：`df_sub = df[df['省份']=='海南']`）。
+                        2. **严禁绘图**：不要生成 fig, plt, sns 代码。
+                        3. **结果赋值**：最终结果必须赋值给变量 `result`。
+                        4. **语言**：中文。
                         
-                        输出 JSON: {{ "intent_analysis": "意图深度解析(Markdown)", "angles": [ {{"title": "分析角度标题", "code": "result=..."}} ] }}
+                        输出 JSON: {{ "intent_analysis": "意图深度解析(Markdown)", "angles": [ {{"title": "分析角度标题", "description": "描述", "code": "df_sub = df[...]\nresult = df_sub..."}} ] }}
                         """
                         response_plan = safe_generate_content(client, "gemini-3-pro-preview", prompt_plan)
                         reasoning_text, plan_json = parse_response(response_plan.text)
@@ -632,11 +593,10 @@ if df is not None:
                                 </div>
                                 """, unsafe_allow_html=True)
                                 
-                                time.sleep(5) 
-                                
                                 try:
+                                    # 纯净的执行上下文
                                     execution_context = {
-                                        'df': df, 'data': df, 'df_market': df, 'df_mat': df, 'df_ytd': df,
+                                        'df': df, 
                                         'pd': pd, 'np': np,
                                         'result': None,
                                         'current_mat': mat_list, 'mat_list': mat_list, 'prior_mat': mat_list_prior,
@@ -644,6 +604,7 @@ if df is not None:
                                     }
                                     exec(angle['code'], execution_context)
                                     
+                                    # 智能抓取结果
                                     if execution_context.get('result') is None:
                                         for k, v in list(execution_context.items()):
                                             if isinstance(v, pd.DataFrame) and k != 'df':
@@ -651,17 +612,16 @@ if df is not None:
                                     
                                     if execution_context.get('result') is not None:
                                         res_df = normalize_result(execution_context['result'])
-                                        
                                         st.dataframe(format_df_for_display(res_df).head(PREVIEW_ROW_LIMIT), use_container_width=True)
-                                        
                                         csv = res_df.head(EXPORT_ROW_LIMIT).to_csv(index=False).encode('utf-8-sig')
                                         st.download_button(f"📥 下载", csv, f"angle_{i}.csv", "text/csv", key=f"dl_{i}")
                                         
                                         with st.spinner(f"⚡ 深度解读..."):
+                                            # 修复：使用 to_string() 替代 to_markdown() 避免依赖报错
                                             mini_prompt = f"""
-                                            对数据进行深度解读（200-300字）。
-                                            预览：{res_df.head(20).to_markdown()}
-                                            要求：提炼趋势/异常，结合业务含义，语言专业，不给建议。
+                                            对数据进行深度解读（200字内）。
+                                            数据预览：\n{res_df.head(20).to_string()}
+                                            要求：提炼趋势/异常，结合业务含义，语言专业。
                                             """
                                             mini_resp = safe_generate_content(client, "gemini-2.0-flash", mini_prompt)
                                             explanation = mini_resp.text
@@ -674,17 +634,16 @@ if df is not None:
                                     else:
                                         st.error("该角度未返回数据")
                                 except Exception as e:
-                                    st.error(f"执行报错: {e}")
+                                    st.error(f"代码执行逻辑有误: {e}")
 
                         if angles_data:
                             st.markdown('<div class="step-header">3. 综合业务洞察</div>', unsafe_allow_html=True)
                             with st.spinner("🤖 生成综述..."):
-                                time.sleep(5)
                                 all_findings = "\n".join([f"[{ad['title']}]: {ad['explanation']}" for ad in angles_data])
                                 final_prompt = f"""
                                 问题: "{current_query}"
-                                发现: {all_findings}
-                                生成最终洞察 (Markdown)。严禁提供建议，仅陈述事实。
+                                各角度发现: {all_findings}
+                                生成最终洞察 (Markdown)。严禁建议，仅陈述事实。
                                 """
                                 resp_final = safe_generate_content(client, "gemini-3-pro-preview", final_prompt)
                                 insight_text = resp_final.text
@@ -699,13 +658,7 @@ if df is not None:
                                 })
                     else:
                         st.error("无法生成分析方案")
-                        st.session_state.messages.append({"role": "assistant", "type": "text", "content": "分析生成失败"})
             except Exception as e:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
-
-
-
-
-
