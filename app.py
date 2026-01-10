@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 # ================= 1. 配置区域 =================
 
 st.set_page_config(
-    page_title="ChatBI (Lite)", 
+    page_title="ChatBI", 
     layout="wide", 
     page_icon="🧬", 
     initial_sidebar_state="expanded"
@@ -662,3 +662,4 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
