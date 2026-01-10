@@ -13,107 +13,134 @@ from google.genai import types
 # 忽略无关警告
 warnings.filterwarnings('ignore')
 
-# ================= 1. 配置区域 =================
+# ================= 1. 基础配置 =================
 
 st.set_page_config(
-    page_title="ChatBI", 
+    page_title="ChatBI - 医药魔方", 
     layout="wide", 
     page_icon="🧬", 
     initial_sidebar_state="expanded"
 )
 
-# --- 核心 CSS 注入 (隐藏 UI 元素) ---
+# --- VI 体系与 UI 样式定义 ---
 def inject_custom_css():
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-        .stApp { background-color: #F8F9FC; font-family: 'Inter', -apple-system, "Microsoft YaHei", sans-serif; }
         
-        /* 1. 彻底移除顶部 Header */
-        header[data-testid="stHeader"] { display: none !important; visibility: hidden !important; }
-        
-        /* 2. 移除右上角工具栏 (Manage App 按钮) */
-        [data-testid="stToolbar"] { display: none !important; visibility: hidden !important; height: 0 !important; }
-        
-        /* 3. 移除底部 footer */
-        footer { display: none !important; }
-        
-        /* 4. 消除顶部留白 */
-        .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
+        /* ================= VI 变量定义 (医药魔方风格) ================= */
+        :root {
+            --pc-primary-blue: #005ADE; /* 魔方蓝 - 主色调 */
+            --pc-dark-blue: #004099;    /* 深蓝 - 用于强调 */
+            --pc-bg-light: #F4F6F9;     /* 浅灰蓝背景 - 专业洁净 */
+            --pc-text-main: #1A2B47;    /* 主要文字 */
+            --pc-text-sub: #5E6D82;     /* 次要文字 */
+        }
 
-        /* 5. 隐藏运行状态图标 */
+        /* 全局样式应用 */
+        .stApp {
+            background-color: var(--pc-bg-light);
+            font-family: 'Inter', "Microsoft YaHei", sans-serif;
+            color: var(--pc-text-main);
+        }
+
+        /* ================= 顶部固定导航栏 ================= */
+        .fixed-header-container {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 64px;
+            background-color: #FFFFFF;
+            box-shadow: 0 2px 12px rgba(0, 90, 222, 0.08);
+            z-index: 999999;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            border-bottom: 1px solid #E6EBF5;
+        }
+        .nav-left { display: flex; align-items: center; }
+        .nav-logo-img { height: 32px; width: auto; margin-right: 12px; }
+        .nav-brand-text { font-size: 18px; font-weight: 700; color: var(--pc-primary-blue); letter-spacing: 0.5px; }
+        
+        .nav-center { display: flex; gap: 32px; font-weight: 600; font-size: 15px; }
+        .nav-item { color: var(--pc-text-sub); cursor: pointer; padding: 20px 4px; position: relative; transition: all 0.2s; }
+        .nav-item:hover { color: var(--pc-primary-blue); }
+        .nav-item.active { color: var(--pc-primary-blue); }
+        .nav-item.active::after {
+            content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px;
+            background-color: var(--pc-primary-blue); border-radius: 2px 2px 0 0;
+        }
+        
+        .nav-right { display: flex; align-items: center; gap: 16px; }
+        .nav-avatar {
+            width: 32px; height: 32px; background-color: var(--pc-primary-blue); color: white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: bold; border: 2px solid #E6EBF5;
+        }
+        .nav-exit-btn {
+            border: 1px solid #DCDFE6; padding: 5px 12px; border-radius: 4px;
+            font-size: 13px; color: var(--pc-text-sub); background: white; cursor: pointer; transition: all 0.2s;
+        }
+        .nav-exit-btn:hover { border-color: var(--pc-primary-blue); color: var(--pc-primary-blue); background-color: #F0F7FF; }
+
+        /* ================= 布局调整 (避让顶部导航栏) ================= */
+        .block-container {
+            padding-top: 80px !important; /* 关键：向下偏移，留出 Header 空间 */
+            padding-bottom: 3rem !important;
+            max-width: 1200px;
+        }
+
+        /* ================= 隐藏 Streamlit 原生元素 ================= */
+        header[data-testid="stHeader"] { display: none !important; visibility: hidden !important; }
+        [data-testid="stToolbar"] { display: none !important; visibility: hidden !important; height: 0 !important; }
+        footer { display: none !important; }
         [data-testid="stStatusWidget"] { visibility: hidden !important; }
 
-        /* UI 组件样式 */
-        .header-container {
-            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
-            padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
-            margin-bottom: 20px; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.6);
-        }
-        .header-logo-img { height: 32px; margin-right: 12px; width: auto; }
-        .header-title {
-            color: #0F172A; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;
-            background: linear-gradient(90deg, #0F172A 0%, #334155 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        .header-meta {
-            color: #64748B; font-size: 12px; font-family: 'JetBrains Mono', monospace;
-            background: #F1F5F9; padding: 4px 10px; border-radius: 6px; margin-left: 10px;
-        }
+        /* ================= 组件风格微调 ================= */
         div.stButton > button {
-            border: 1px solid #E2E8F0; background-color: #FFFFFF; color: #1E293B;
-            border-radius: 8px; padding: 15px 20px; font-size: 14px; font-weight: 500;
-            transition: all 0.2s; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            border: 1px solid #E6EBF5; color: var(--pc-text-main); background: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
         }
         div.stButton > button:hover {
-            border-color: #3B82F6; color: #3B82F6; background-color: #F0F9FF;
-            transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            border-color: var(--pc-primary-blue); color: var(--pc-primary-blue); background-color: #F0F7FF;
         }
         .summary-box {
-            background-color: #F8FAFC; padding: 20px; border-radius: 8px;
-            border: 1px solid #E2E8F0; border-left: 4px solid #10B981; margin-bottom: 20px;
+            background-color: #FFFFFF; padding: 20px; border-radius: 8px;
+            border: 1px solid #E6EBF5; border-left: 4px solid var(--pc-primary-blue); margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
-        .summary-title { font-weight: 600; color: #059669; font-size: 14px; margin-bottom: 12px; }
-        .summary-list li { margin-bottom: 8px; font-size: 14px; color: #334155; display: flex; }
-        .summary-label { min-width: 60px; color: #64748B; font-size: 12px; font-weight: 500; }
         .tech-card {
             background-color: white; padding: 24px; border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;
-            border: 1px solid #E2E8F0; transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02); margin-bottom: 20px;
+            border: 1px solid #E6EBF5; transition: all 0.2s ease-in-out;
         }
-        .tech-card:hover { transform: translateY(-2px); border-color: #CBD5E1; }
-        .angle-title { font-size: 16px; font-weight: 700; color: #1E293B; margin-bottom: 6px; }
-        .angle-desc { color: #64748B; font-size: 13px; margin-bottom: 15px; line-height: 1.5; }
+        .tech-card:hover { transform: translateY(-2px); border-color: #B3C0D1; box-shadow: 0 8px 16px rgba(0,0,0,0.04); }
         .mini-insight {
-            background-color: #F1F5F9; padding: 12px 16px; border-radius: 6px;
-            font-size: 13px; color: #475569; margin-top: 15px; border-left: 3px solid #94A3B8; line-height: 1.6;
+            background-color: #F4F6F9; padding: 12px 16px; border-radius: 6px;
+            font-size: 13px; color: var(--pc-text-sub); margin-top: 15px; border-left: 3px solid #909399;
         }
         .insight-box {
             background: white; padding: 24px; border-radius: 12px; position: relative;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02); border: 1px solid #E6EBF5;
         }
         .insight-box::before {
             content: ''; position: absolute; left: 0; top: 12px; bottom: 12px;
-            width: 4px; background: linear-gradient(180deg, #3B82F6 0%, #06B6D4 100%);
+            width: 4px; background: linear-gradient(180deg, var(--pc-primary-blue) 0%, #00C853 100%);
             border-radius: 0 4px 4px 0;
         }
         .step-header {
-            font-weight: 700; color: #1E293B; font-size: 16px; margin-top: 35px; 
+            font-weight: 700; color: var(--pc-text-main); font-size: 16px; margin-top: 35px; 
             margin-bottom: 20px; display: flex; align-items: center;
         }
         .step-header::before {
             content: ''; display: inline-block; width: 4px; height: 18px;
-            background: #3B82F6; margin-right: 12px; border-radius: 2px;
+            background: var(--pc-primary-blue); margin-right: 12px; border-radius: 2px;
         }
         </style>
     """, unsafe_allow_html=True)
-
-inject_custom_css()
 
 # --- 配置读取 ---
 try:
     FIXED_API_KEY = st.secrets["GENAI_API_KEY"]
 except:
-    FIXED_API_KEY = "" # 本地调试用空值
+    FIXED_API_KEY = ""
 
 FIXED_FILE_NAME = "hcmdata.xlsx" 
 LOGO_FILE = "logo.png"
@@ -160,7 +187,6 @@ def load_data():
         else:
             df = pd.read_excel(FIXED_FILE_NAME)
         df.columns = df.columns.str.strip()
-        # 简单的数据清洗
         for col in df.columns:
             if any(k in str(col) for k in ['额', '量', 'Sales', 'Qty', '金额']):
                 try:
@@ -173,11 +199,6 @@ def load_data():
     except Exception as e:
         st.error(f"文件读取失败: {e}")
         return None
-
-def get_img_as_base64(file_path):
-    if not os.path.exists(file_path): return ""
-    with open(file_path, "rb") as f: data = f.read()
-    return base64.b64encode(data).decode()
 
 def get_history_context(messages, turn_limit=3):
     if len(messages) <= 1: return "无历史对话。"
@@ -305,21 +326,43 @@ def parse_response(text):
     except Exception: pass
     return reasoning, json_data
 
-# ================= 4. 主界面逻辑 =================
+# ================= 3. 页面渲染函数 =================
 
-logo_html = ""
-if os.path.exists(LOGO_FILE):
-    b64_img = get_img_as_base64(LOGO_FILE)
-    logo_html = f'<img src="data:image/png;base64,{b64_img}" class="header-logo-img">'
+def render_header_nav():
+    logo_b64 = ""
+    if os.path.exists(LOGO_FILE):
+        with open(LOGO_FILE, "rb") as f:
+            logo_b64 = base64.b64encode(f.read()).decode()
+    
+    logo_img_tag = f'<img src="data:image/png;base64,{logo_b64}" class="nav-logo-img">' if logo_b64 else ""
+    user_initials = "PRO"
 
-st.markdown(f"""
-    <div class="header-container">
-        {logo_html}
-        <div class="header-title">ChatBI</div>
-        <div style="flex-grow: 1;"></div>
-        <div class="header-meta">数据源: {FIXED_FILE_NAME}</div>
+    st.markdown(f"""
+    <div class="fixed-header-container">
+        <div class="nav-left">
+            {logo_img_tag}
+            <div class="nav-brand-text">医药魔方</div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="nav-item">HCM</div> 
+            <div class="nav-item active">ChatBI</div>
+        </div>
+        
+        <div class="nav-right">
+            <div class="nav-avatar" title="当前用户">{user_initials}</div>
+            <button class="nav-exit-btn" onclick="alert('Web应用中无法直接退出浏览器，您可以直接关闭标签页。')">退出</button>
+        </div>
     </div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+# ================= 4. 主程序执行 =================
+
+# 1. 注入样式
+inject_custom_css()
+
+# 2. 渲染顶部导航
+render_header_nav()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -342,15 +385,12 @@ if df is not None:
     time_context = analyze_time_structure(df)
     meta_data = build_metadata(df, time_context)
     
+    # Sidebar: 仅保留控制台功能，Logo 已移至顶部
     with st.sidebar:
-        if os.path.exists(LOGO_FILE):
-            st.image(LOGO_FILE, width=150)
-            st.markdown("---")
-        else:
-            st.markdown("### 🧬 控制台")
+        st.markdown("### 🛠️ 控制台")
         st.caption("状态: 在线 (Active)")
-        st.info(f"总行数: {len(df):,}")
-        st.info(f"时间跨度: {time_context.get('min_q')} ~ {time_context.get('max_q')}")
+        st.info(f"📊 总行数: {len(df):,}")
+        st.info(f"📅 时间跨度: {time_context.get('min_q')} ~ {time_context.get('max_q')}")
         st.divider()
         if st.button("🗑️ 清空会话", use_container_width=True):
             st.session_state.messages = []
@@ -358,7 +398,7 @@ if df is not None:
             st.session_state.is_interrupted = False
             st.rerun()
 
-    # 1. 渲染历史记录
+    # 聊天记录渲染
     for msg_idx, msg in enumerate(st.session_state.messages):
         with st.chat_message(msg["role"]):
             if msg["type"] == "text":
@@ -417,7 +457,7 @@ if df is not None:
                     st.markdown('<div class="step-header">3. 综合业务洞察</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="insight-box">{content.get("insight", "")}</div>', unsafe_allow_html=True)
 
-    # 2. 引导卡片
+    # 引导卡片
     if len(st.session_state.messages) == 0 and not st.session_state.is_interrupted:
         st.markdown("### 💡 猜你想问")
         col1, col2, col3 = st.columns(3)
@@ -429,7 +469,7 @@ if df is not None:
         if col3.button(f"📊 **区域表现**\n\n{q3}", use_container_width=True):
             st.session_state.messages.append({"role": "user", "type": "text", "content": q3}); st.rerun()
 
-    # 3. 中止回显 & 输入框
+    # 中止 & 输入
     if st.session_state.is_interrupted:
         st.warning("⚠️ 已中止生成。您可以修改刚才的问题并重新发送：")
         def submit_edit():
@@ -447,7 +487,7 @@ if df is not None:
             st.session_state.messages.append({"role": "user", "type": "text", "content": query_input})
             st.rerun()
 
-    # 4. 核心处理逻辑
+    # 核心逻辑
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user" and not st.session_state.is_interrupted:
         current_query = st.session_state.messages[-1]["content"]
         history_context_str = get_history_context(st.session_state.messages, turn_limit=3)
@@ -662,5 +702,3 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
-
-
