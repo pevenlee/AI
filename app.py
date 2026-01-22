@@ -147,7 +147,7 @@ LOGO_FILE = "logo.png"
 CLIENT_FILE_NAME = "structure.xlsx"
 
 PREVIEW_ROW_LIMIT = 500
-EXPORT_ROW_LIMIT = 5000    
+EXPORT_ROW_LIMIT = 5000   
 
 # ================= 2. 核心逻辑函数 =================
 
@@ -611,7 +611,16 @@ if df is not None:
                         simple_resp = safe_generate_content(
                             client, "gemini-3-pro-preview", simple_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
                         )
-                        simple_json = json.loads(simple_resp.text)
+                        
+                        # --- 修复点开始 ---
+                        # 使用 parse_response 安全解析，避免 Extra data 错误
+                        _, simple_json = parse_response(simple_resp.text)
+                        
+                        # 如果解析失败（simple_json 为 None），可以做额外处理
+                        if not simple_json:
+                            st.error("无法解析生成的代码格式，请重试。")
+                            st.stop()
+                        # --- 修复点结束 ---
                         
                         # 纯净的执行上下文，防止 AI 幻觉
                         execution_context = {
@@ -764,6 +773,3 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
-
-
-
