@@ -147,7 +147,7 @@ LOGO_FILE = "logo.png"
 CLIENT_FILE_NAME = "structure.xlsx"
 
 PREVIEW_ROW_LIMIT = 500
-EXPORT_ROW_LIMIT = 5000   
+EXPORT_ROW_LIMIT = 5000    
 
 # ================= 2. 核心逻辑函数 =================
 
@@ -318,8 +318,9 @@ def build_metadata(df, time_context):
         dtype = str(df[col].dtype)
         uniques = df[col].dropna().unique()
         desc = f"- `{col}` ({dtype})"
+        # 🔴【改进1】扩大采样数量，让 AI 看到更多真实值，避免把 '康缘' 误判为 '康缘事业部'
         if dtype == 'object' or len(uniques) < 2000:
-            vals = list(uniques[:5]) if len(uniques) > 100 else list(uniques)
+            vals = list(uniques[:20]) if len(uniques) > 20 else list(uniques) # 增加到 20 个样本
             desc += f" | 示例: {vals}"
         info.append(desc)
     return "\n".join(info)
@@ -590,6 +591,7 @@ if df is not None:
                 # ================= [Simple Mode] =================
                 elif intent_type == 'simple':
                     with st.spinner("识别到数据提取的需求， 正在解析意图并生成代码，这可能会花一到两分钟..."):
+                        # 🔴【改进2】Prompt 中增加安全指令
                         simple_prompt = f"""
                         你是一位医药行业的 Pandas 数据处理专家。用户需求："{current_query}"
                         【元数据】{meta_data}
@@ -599,9 +601,10 @@ if df is not None:
                         【关键指令 - 这里的规则必须遵守】
                         1. **唯一数据源**：环境中只有 `df`。不要假设存在 `df_sales`, `df_hainan` 等变量。
                         2. **必须自行筛选**：如果需要特定维度（如海南、2023年），必须在代码中显式筛选。例如：`df_sub = df[df['省份']=='海南']`。
-                        3. **结果赋值**：将最终结果字典赋值给 `results`。
-                        4. **严禁绘图**。
-                        5. 当提到市场表现时，尽可能给一些对比性的指标。如份额、同比、份额变化、EI等指标
+                        3. **禁止臆造Key**：不要直接假设数据中存在 '康缘事业部' 这样的具体值。请先检查 unique 值或使用模糊匹配。
+                        4. **结果赋值**：将最终结果字典赋值给 `results`。
+                        5. **严禁绘图**。
+                        6. 当提到市场表现时，尽可能给一些对比性的指标。如份额、同比、份额变化、EI等指标
                         
                         输出 JSON: {{ 
                             "summary": {{ "intent": "意图描述", "scope": "数据范围", "metrics": "指标", "logic": "计算逻辑" }}, 
@@ -612,7 +615,6 @@ if df is not None:
                             client, "gemini-3-pro-preview", simple_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
                         )
                         
-                        # --- 修复点开始 ---
                         # 使用 parse_response 安全解析，避免 Extra data 错误
                         _, simple_json = parse_response(simple_resp.text)
                         
@@ -620,7 +622,6 @@ if df is not None:
                         if not simple_json:
                             st.error("无法解析生成的代码格式，请重试。")
                             st.stop()
-                        # --- 修复点结束 ---
                         
                         # 纯净的执行上下文，防止 AI 幻觉
                         execution_context = {
@@ -630,7 +631,14 @@ if df is not None:
                             'current_mat': mat_list, 'mat_list': mat_list, 'prior_mat': mat_list_prior,
                             'mat_list_prior': mat_list_prior, 'ytd_list': ytd_list, 'ytd_list_prior': ytd_list_prior
                         }
-                        exec(simple_json['code'], execution_context)
+                        
+                        try:
+                            exec(simple_json['code'], execution_context)
+                        except Exception as e:
+                            st.error(f"代码执行错误: {e}")
+                            # 🔴【改进3】出错时显示代码
+                            with st.expander("👀 查看 AI 生成的错误代码"):
+                                st.code(simple_json['code'], language='python')
                         
                         final_results = execution_context.get('results')
                         if not final_results and execution_context.get('result') is not None:
@@ -668,6 +676,7 @@ if df is not None:
                 # ================= [Analysis Mode] =================
                 else:
                     with st.spinner("识别到数据分析的需求，正在拆解问题，这可能会花1~2分钟..."):
+                        # 🔴【改进2】Prompt 中增加安全指令
                         prompt_plan = f"""
                         你是一位医药行业 BI 专家。请将问题："{current_query}" 拆解为 2-5 个分析角度。
                         结合时间动态（MAT/YTD）和竞争视角进行分析。
@@ -679,10 +688,11 @@ if df is not None:
                         【关键指令 - 这里的规则必须遵守】
                         0. **数据源唯一入口**：环境中**只有**一个名为 `df` 的 Pandas DataFrame。
                         1. **严禁使用未定义变量**：绝对不要直接使用 `df_hainan`, `df_2023` 这种变量，除非你在代码中第一行先定义了它（例如：`df_sub = df[df['省份']=='海南']`）。
-                        2. **严禁绘图**：不要生成 fig, plt, sns 代码。
-                        3. **结果赋值**：最终结果必须赋值给变量 `result`。
-                        4. **语言**：中文。
-                        5. 当提到市场表现时，尽可能给一些对比性的指标。如份额、同比、份额变化、EI等指标
+                        2. **严禁臆造Key**：不要直接假设数据中存在 '康缘事业部' 这样的具体值。如果要筛选部门，请先用 `df['部门列'].unique()` 确认名称，或者使用模糊匹配。
+                        3. **严禁绘图**：不要生成 fig, plt, sns 代码。
+                        4. **结果赋值**：最终结果必须赋值给变量 `result`。
+                        5. **语言**：中文。
+                        6. 当提到市场表现时，尽可能给一些对比性的指标。如份额、同比、份额变化、EI等指标
                         
                         输出 JSON: {{ "intent_analysis": "意图深度解析(Markdown)", "angles": [ {{"title": "分析角度标题", "description": "描述", "code": "df_sub = df[...]\nresult = df_sub..."}} ] }}
                         """
@@ -746,6 +756,9 @@ if df is not None:
                                         st.error("该角度未返回数据")
                                 except Exception as e:
                                     st.error(f"代码执行逻辑有误: {e}")
+                                    # 🔴【改进3】出错时显示代码
+                                    with st.expander("👀 查看 AI 生成的错误代码"):
+                                        st.code(angle['code'], language='python')
 
                         if angles_data:
                             st.markdown('<div class="step-header">3. 综合业务洞察</div>', unsafe_allow_html=True)
