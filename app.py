@@ -177,12 +177,14 @@ def safe_generate_content(client, model_name, contents, config=None, retries=3):
                     continue
             raise e
 
+# 🔴 关键修复：移除所有 st.session_state 操作和 st.toast
+# 改为返回 (dataframe, status_message) 的元组
 @st.cache_data
 def load_data():
     # 1. 读取主数据 (销量/事实表)
     if not os.path.exists(FIXED_FILE_NAME):
-        st.error(f"❌ 找不到主数据文件: {FIXED_FILE_NAME}")
-        return None
+        # 找不到文件时返回 None 和错误信息
+        return None, f"❌ 找不到主数据文件: {FIXED_FILE_NAME}"
     
     try:
         # 读取主表
@@ -215,37 +217,31 @@ def load_data():
                 df_client.columns = df_client.columns.str.strip()
                 
                 # --- 智能关联逻辑 ---
-                # 寻找两个表的共同列名 (交集)
                 common_cols = list(set(df_main.columns) & set(df_client.columns))
                 
                 if common_cols:
-                    # 默认使用第一个共同列作为关联键 (Key)
                     join_key = common_cols[0]
                     
-                    # 关键步骤：为了防止销量数据膨胀，必须确保架构表中的 Key 是唯一的
+                    # 去重逻辑
+                    msg_suffix = ""
                     if df_client[join_key].duplicated().any():
-                        st.toast(f"⚠️ 检测到架构表 '{join_key}' 列有重复，已自动去重以防止数据膨胀。", icon="🧹")
                         df_client = df_client.drop_duplicates(subset=[join_key])
+                        msg_suffix = " (已自动去重)"
                     
-                    # 执行左连接 (Left Join)
+                    # 执行左连接
                     df_merged = pd.merge(df_main, df_client, on=join_key, how='left')
                     
-                    # 在 Session State 中记录关联状态
-                    st.session_state['merge_info'] = f"✅ 已关联架构表 (Key: {join_key})"
-                    return df_merged
+                    # ✅ 返回数据和成功消息
+                    return df_merged, f"✅ 已关联架构表 (Key: {join_key}){msg_suffix}"
                 else:
-                    st.session_state['merge_info'] = "⚠️ 未关联：两个表没有相同的列名"
-                    return df_main
+                    return df_main, "⚠️ 未关联：两个表没有相同的列名"
             except Exception as e:
-                st.session_state['merge_info'] = f"❌ 架构表读取失败: {str(e)}"
-                return df_main
+                return df_main, f"❌ 架构表读取失败: {str(e)}"
         else:
-            st.session_state['merge_info'] = "ℹ️ 无架构表文件"
-            return df_main
+            return df_main, "ℹ️ 无架构表文件"
 
     except Exception as e:
-        st.error(f"文件读取严重错误: {e}")
-        return None
+        return None, f"文件读取严重错误: {e}"
 
 def get_history_context(messages, turn_limit=3):
     if len(messages) <= 1: return "无历史对话。"
@@ -426,12 +422,16 @@ if not client:
     st.info("请在 Streamlit 后台 Secrets 中配置 `GENAI_API_KEY`。")
     st.stop()
 
-# 3. 加载数据
-df = load_data()
+# 3. 加载数据 (接收两个返回值)
+df, merge_info = load_data()
+
+# 如果 df 为 None，说明读取失败，显示错误
+if df is None:
+    st.error(merge_info)
+    st.stop()
 
 # 4. 只有当 df 加载成功时才继续
 if df is not None:
-    # --- 修复点 1: 先计算 Time Context 和 Metadata ---
     time_context = analyze_time_structure(df)
     meta_data = build_metadata(df, time_context)
     
@@ -442,25 +442,24 @@ if df is not None:
         st.info(f"📊 总行数: {len(df):,}")
         st.info(f"📅 时间跨度: {time_context.get('min_q')} ~ {time_context.get('max_q')}")
         
-        # 显示关联状态
-        if 'merge_info' in st.session_state:
-            if "✅" in st.session_state['merge_info']:
-                st.success(st.session_state['merge_info'])
-            elif "⚠️" in st.session_state['merge_info']:
-                st.warning(st.session_state['merge_info'])
+        # ✅ 直接使用返回的 merge_info 变量显示状态
+        if merge_info:
+            if "✅" in merge_info:
+                st.success(merge_info)
+            elif "⚠️" in merge_info:
+                st.warning(merge_info)
             else:
-                st.info(st.session_state['merge_info'])
+                st.info(merge_info)
         
         st.divider()
         
-        # --- 修复点 2: 按钮缩进修复 ---
         if st.button("🗑️ 清空会话", use_container_width=True):
             st.session_state.messages = []
             st.session_state.last_query_draft = ""
             st.session_state.is_interrupted = False
             st.rerun()
 
-    # --- 聊天记录渲染 (注意这里缩进退回到了 if df is not None 层级) ---
+    # --- 聊天记录渲染 ---
     for msg_idx, msg in enumerate(st.session_state.messages):
         with st.chat_message(msg["role"]):
             if msg["type"] == "text":
