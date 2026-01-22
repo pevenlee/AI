@@ -543,7 +543,7 @@ if df is not None:
         st.button("🚀 重新发送", on_click=submit_edit, type="primary")
 
     if not st.session_state.is_interrupted:
-        if query_input := st.chat_input("🔎 请输入问题..."):
+        if query_input := st.chat_input("🔎 从这里自定义需要询问的市场问题..."):
             st.session_state.last_query_draft = query_input
             st.session_state.messages.append({"role": "user", "type": "text", "content": query_input})
             st.rerun()
@@ -764,5 +764,6 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
 
 
