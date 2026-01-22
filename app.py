@@ -147,7 +147,7 @@ LOGO_FILE = "logo.png"
 CLIENT_FILE_NAME = "structure.xlsx"
 
 PREVIEW_ROW_LIMIT = 500
-EXPORT_ROW_LIMIT = 5000   
+EXPORT_ROW_LIMIT = 5000    
 
 # ================= 2. 核心逻辑函数 =================
 
@@ -220,24 +220,22 @@ def load_data():
                 
                 if common_cols:
                     # 默认使用第一个共同列作为关联键 (Key)
-                    # 建议用户确保两个表中有一个列名完全相同，如 "医院编码" 或 "医院名称"
                     join_key = common_cols[0]
                     
                     # 关键步骤：为了防止销量数据膨胀，必须确保架构表中的 Key 是唯一的
-                    # 如果架构表中同一个医院有多行，这里会只保留第一行
                     if df_client[join_key].duplicated().any():
                         st.toast(f"⚠️ 检测到架构表 '{join_key}' 列有重复，已自动去重以防止数据膨胀。", icon="🧹")
                         df_client = df_client.drop_duplicates(subset=[join_key])
                     
-                    # 执行左连接 (Left Join): 也就是把架构贴到销量表上
+                    # 执行左连接 (Left Join)
                     df_merged = pd.merge(df_main, df_client, on=join_key, how='left')
                     
-                    # 在 Session State 中记录关联状态，以便在 Sidebar 显示
+                    # 在 Session State 中记录关联状态
                     st.session_state['merge_info'] = f"✅ 已关联架构表 (Key: {join_key})"
                     return df_merged
                 else:
                     st.session_state['merge_info'] = "⚠️ 未关联：两个表没有相同的列名"
-                    return df_main # 没找到共同列，只返回主表
+                    return df_main
             except Exception as e:
                 st.session_state['merge_info'] = f"❌ 架构表读取失败: {str(e)}"
                 return df_main
@@ -375,7 +373,7 @@ def parse_response(text):
     except Exception: pass
     return reasoning, json_data
 
-# ================= 3. 页面渲染函数 (终极修复版) =================
+# ================= 3. 页面渲染函数 =================
 
 def render_header_nav():
     logo_b64 = ""
@@ -387,9 +385,6 @@ def render_header_nav():
     logo_img_tag = f'<img src="data:image/png;base64,{logo_b64}" class="nav-logo-img">' if logo_b64 else ""
     user_initials = "PRO"
 
-    # --- 核心修改 ---
-    # 我们在这里定义 HTML，即使你有缩进也没关系
-    # 因为我们在最后会用 .replace 把它压扁
     nav_html = f"""
     <div class="fixed-header-container">
         <div class="nav-left">
@@ -406,8 +401,6 @@ def render_header_nav():
     </div>
     """
     
-    # 🔥 关键一步：移除所有换行符，强制变为单行 HTML
-    # 这样就彻底避免了 Markdown 的缩进误判
     st.markdown(nav_html.replace("\n", ""), unsafe_allow_html=True)
 
 # ================= 4. 主程序执行 =================
@@ -433,16 +426,23 @@ if not client:
     st.info("请在 Streamlit 后台 Secrets 中配置 `GENAI_API_KEY`。")
     st.stop()
 
+# 3. 加载数据
 df = load_data()
 
+# 4. 只有当 df 加载成功时才继续
 if df is not None:
-    # ... 在 if df is not None: 之后 ...
-
-    # Sidebar: 仅保留控制台功能，Logo 已移至顶部
+    # --- 修复点 1: 先计算 Time Context 和 Metadata ---
+    time_context = analyze_time_structure(df)
+    meta_data = build_metadata(df, time_context)
+    
+    # --- Sidebar 渲染 ---
     with st.sidebar:
-        # ... 上面是 Sidebar 的显示逻辑 ...
+        st.markdown("### 🛠️ 控制台")
+        st.caption("状态: 在线 (Active)")
+        st.info(f"📊 总行数: {len(df):,}")
+        st.info(f"📅 时间跨度: {time_context.get('min_q')} ~ {time_context.get('max_q')}")
         
-        # --- 显示关联状态 (这是你刚才加的功能) ---
+        # 显示关联状态
         if 'merge_info' in st.session_state:
             if "✅" in st.session_state['merge_info']:
                 st.success(st.session_state['merge_info'])
@@ -453,23 +453,14 @@ if df is not None:
         
         st.divider()
         
-        # 🔴 报错位置就在这里：if 下面必须有缩进的内容
+        # --- 修复点 2: 按钮缩进修复 ---
         if st.button("🗑️ 清空会话", use_container_width=True):
-            # 👇 这里必须缩进 (Tab 或 4个空格)
             st.session_state.messages = []
             st.session_state.last_query_draft = ""
             st.session_state.is_interrupted = False
             st.rerun()
 
-    # 🟢 这里的 for 循环必须退出 st.sidebar 的缩进 (向左回退)
-    # 这一行应该和上面的 with st.sidebar: 对齐
-    for msg_idx, msg in enumerate(st.session_state.messages):
-        with st.chat_message(msg["role"]):
-            if msg["type"] == "text":
-                st.markdown(msg["content"])
-            # ... 后面的代码 ...
-
-    # 聊天记录渲染
+    # --- 聊天记录渲染 (注意这里缩进退回到了 if df is not None 层级) ---
     for msg_idx, msg in enumerate(st.session_state.messages):
         with st.chat_message(msg["role"]):
             if msg["type"] == "text":
@@ -728,7 +719,6 @@ if df is not None:
                                         st.download_button(f"📥 下载", csv, f"angle_{i}.csv", "text/csv", key=f"dl_{i}")
                                         
                                         with st.spinner(f"⚡ 深度解读..."):
-                                            # 修复：使用 to_string() 替代 to_markdown() 避免依赖报错
                                             mini_prompt = f"""
                                             对数据进行深度解读（200字内）。
                                             数据预览：\n{res_df.head(20).to_string()}
@@ -773,9 +763,3 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
-
-
-
-
-
-
