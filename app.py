@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore')
 st.set_page_config(
     page_title="ChatBI", 
     layout="wide", 
-    page_icon="🧬", 
+    page_icon="-", 
     initial_sidebar_state="expanded"
 )
 
@@ -520,7 +520,7 @@ if df is not None:
 
     # 引导卡片
     if len(st.session_state.messages) == 0 and not st.session_state.is_interrupted:
-        st.markdown("### 💡 猜你想问")
+        st.markdown("### 了解市场，从这里开始")
         col1, col2, col3 = st.columns(3)
         q1, q2, q3 = "康缘在各个省份的市场份额多少？", "康缘的哪些产品同比增长较高？", "康缘不同区域的市场表现怎么样？"
         if col1.button(f"🗺️ **份额分析**\n\n{q1}", use_container_width=True):
@@ -589,7 +589,7 @@ if df is not None:
 
                 # ================= [Simple Mode] =================
                 elif intent_type == 'simple':
-                    with st.spinner("⚡ 正在解析意图并生成代码..."):
+                    with st.spinner("识别到数据提取的需求， 正在解析意图并生成代码，这可能会花一到两分钟..."):
                         simple_prompt = f"""
                         你是一位 Pandas 数据处理专家。用户需求："{current_query}"
                         【元数据】{meta_data}
@@ -657,7 +657,7 @@ if df is not None:
 
                 # ================= [Analysis Mode] =================
                 else:
-                    with st.spinner("🧠 正在拆解问题..."):
+                    with st.spinner("识别到数据分析的需求，正在拆解问题，这可能会花1~2分钟..."):
                         prompt_plan = f"""
                         你是一位医药行业 BI 专家。请将问题："{current_query}" 拆解为 2-5 个分析角度。
                         结合时间动态（MAT/YTD）和竞争视角进行分析。
@@ -762,3 +762,4 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
