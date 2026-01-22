@@ -144,6 +144,7 @@ except:
 
 FIXED_FILE_NAME = "hcmdata.xlsx" 
 LOGO_FILE = "logo.png"
+CLIENT_FILE_NAME = "structure.xlsx"
 
 PREVIEW_ROW_LIMIT = 500
 EXPORT_ROW_LIMIT = 5000   
@@ -178,26 +179,74 @@ def safe_generate_content(client, model_name, contents, config=None, retries=3):
 
 @st.cache_data
 def load_data():
+    # 1. 读取主数据 (销量/事实表)
     if not os.path.exists(FIXED_FILE_NAME):
-        st.error(f"❌ 找不到文件: {FIXED_FILE_NAME}")
+        st.error(f"❌ 找不到主数据文件: {FIXED_FILE_NAME}")
         return None
+    
     try:
+        # 读取主表
         if FIXED_FILE_NAME.endswith('.csv'):
-            df = pd.read_csv(FIXED_FILE_NAME)
+            df_main = pd.read_csv(FIXED_FILE_NAME)
         else:
-            df = pd.read_excel(FIXED_FILE_NAME)
-        df.columns = df.columns.str.strip()
-        for col in df.columns:
+            df_main = pd.read_excel(FIXED_FILE_NAME)
+        
+        # 清洗列名
+        df_main.columns = df_main.columns.str.strip()
+        
+        # 处理数值列 (去除千分位逗号等)
+        for col in df_main.columns:
             if any(k in str(col) for k in ['额', '量', 'Sales', 'Qty', '金额']):
                 try:
-                    df[col] = pd.to_numeric(
-                        df[col].astype(str).str.replace(',', '', regex=False),
+                    df_main[col] = pd.to_numeric(
+                        df_main[col].astype(str).str.replace(',', '', regex=False),
                         errors='coerce'
                     ).fillna(0)
                 except: pass
-        return df
+        
+        # 2. 读取架构数据 (维度表) 并尝试关联
+        if os.path.exists(CLIENT_FILE_NAME):
+            try:
+                if CLIENT_FILE_NAME.endswith('.csv'):
+                    df_client = pd.read_csv(CLIENT_FILE_NAME)
+                else:
+                    df_client = pd.read_excel(CLIENT_FILE_NAME)
+                
+                df_client.columns = df_client.columns.str.strip()
+                
+                # --- 智能关联逻辑 ---
+                # 寻找两个表的共同列名 (交集)
+                common_cols = list(set(df_main.columns) & set(df_client.columns))
+                
+                if common_cols:
+                    # 默认使用第一个共同列作为关联键 (Key)
+                    # 建议用户确保两个表中有一个列名完全相同，如 "医院编码" 或 "医院名称"
+                    join_key = common_cols[0]
+                    
+                    # 关键步骤：为了防止销量数据膨胀，必须确保架构表中的 Key 是唯一的
+                    # 如果架构表中同一个医院有多行，这里会只保留第一行
+                    if df_client[join_key].duplicated().any():
+                        st.toast(f"⚠️ 检测到架构表 '{join_key}' 列有重复，已自动去重以防止数据膨胀。", icon="🧹")
+                        df_client = df_client.drop_duplicates(subset=[join_key])
+                    
+                    # 执行左连接 (Left Join): 也就是把架构贴到销量表上
+                    df_merged = pd.merge(df_main, df_client, on=join_key, how='left')
+                    
+                    # 在 Session State 中记录关联状态，以便在 Sidebar 显示
+                    st.session_state['merge_info'] = f"✅ 已关联架构表 (Key: {join_key})"
+                    return df_merged
+                else:
+                    st.session_state['merge_info'] = "⚠️ 未关联：两个表没有相同的列名"
+                    return df_main # 没找到共同列，只返回主表
+            except Exception as e:
+                st.session_state['merge_info'] = f"❌ 架构表读取失败: {str(e)}"
+                return df_main
+        else:
+            st.session_state['merge_info'] = "ℹ️ 无架构表文件"
+            return df_main
+
     except Exception as e:
-        st.error(f"文件读取失败: {e}")
+        st.error(f"文件读取严重错误: {e}")
         return None
 
 def get_history_context(messages, turn_limit=3):
@@ -387,21 +436,28 @@ if not client:
 df = load_data()
 
 if df is not None:
-    time_context = analyze_time_structure(df)
-    meta_data = build_metadata(df, time_context)
-    
+    # ... 在 if df is not None: 之后 ...
+
     # Sidebar: 仅保留控制台功能，Logo 已移至顶部
     with st.sidebar:
         st.markdown("### 🛠️ 控制台")
         st.caption("状态: 在线 (Active)")
         st.info(f"📊 总行数: {len(df):,}")
         st.info(f"📅 时间跨度: {time_context.get('min_q')} ~ {time_context.get('max_q')}")
+        
+        # --- 新增：显示架构关联状态 ---
+        if 'merge_info' in st.session_state:
+            # 根据状态显示不同颜色的提示
+            if "✅" in st.session_state['merge_info']:
+                st.success(st.session_state['merge_info'])
+            elif "⚠️" in st.session_state['merge_info']:
+                st.warning(st.session_state['merge_info'])
+            else:
+                st.info(st.session_state['merge_info'])
+        # ---------------------------
+
         st.divider()
         if st.button("🗑️ 清空会话", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.last_query_draft = ""
-            st.session_state.is_interrupted = False
-            st.rerun()
 
     # 聊天记录渲染
     for msg_idx, msg in enumerate(st.session_state.messages):
@@ -707,6 +763,7 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
 
 
 
