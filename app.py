@@ -591,7 +591,7 @@ if df is not None:
                 elif intent_type == 'simple':
                     with st.spinner("识别到数据提取的需求， 正在解析意图并生成代码，这可能会花一到两分钟..."):
                         simple_prompt = f"""
-                        你是一位 Pandas 数据处理专家。用户需求："{current_query}"
+                        你是一位医药行业的 Pandas 数据处理专家。用户需求："{current_query}"
                         【元数据】{meta_data}
                         【历史记录】{history_context_str}
                         【时间上下文】MAT: {mat_list}, YTD: {ytd_list}
@@ -601,6 +601,7 @@ if df is not None:
                         2. **必须自行筛选**：如果需要特定维度（如海南、2023年），必须在代码中显式筛选。例如：`df_sub = df[df['省份']=='海南']`。
                         3. **结果赋值**：将最终结果字典赋值给 `results`。
                         4. **严禁绘图**。
+                        5. 当提到市场表现时，尽可能给一些对比性的指标。如份额、同比、份额变化、EI等指标
                         
                         输出 JSON: {{ 
                             "summary": {{ "intent": "意图描述", "scope": "数据范围", "metrics": "指标", "logic": "计算逻辑" }}, 
@@ -672,6 +673,7 @@ if df is not None:
                         2. **严禁绘图**：不要生成 fig, plt, sns 代码。
                         3. **结果赋值**：最终结果必须赋值给变量 `result`。
                         4. **语言**：中文。
+                        5. 当提到市场表现时，尽可能给一些对比性的指标。如份额、同比、份额变化、EI等指标
                         
                         输出 JSON: {{ "intent_analysis": "意图深度解析(Markdown)", "angles": [ {{"title": "分析角度标题", "description": "描述", "code": "df_sub = df[...]\nresult = df_sub..."}} ] }}
                         """
@@ -762,4 +764,5 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
 
