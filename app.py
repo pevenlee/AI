@@ -440,24 +440,34 @@ if df is not None:
 
     # Sidebar: 仅保留控制台功能，Logo 已移至顶部
     with st.sidebar:
-        st.markdown("### 🛠️ 控制台")
-        st.caption("状态: 在线 (Active)")
-        st.info(f"📊 总行数: {len(df):,}")
-        st.info(f"📅 时间跨度: {time_context.get('min_q')} ~ {time_context.get('max_q')}")
+        # ... 上面是 Sidebar 的显示逻辑 ...
         
-        # --- 新增：显示架构关联状态 ---
+        # --- 显示关联状态 (这是你刚才加的功能) ---
         if 'merge_info' in st.session_state:
-            # 根据状态显示不同颜色的提示
             if "✅" in st.session_state['merge_info']:
                 st.success(st.session_state['merge_info'])
             elif "⚠️" in st.session_state['merge_info']:
                 st.warning(st.session_state['merge_info'])
             else:
                 st.info(st.session_state['merge_info'])
-        # ---------------------------
-
+        
         st.divider()
+        
+        # 🔴 报错位置就在这里：if 下面必须有缩进的内容
         if st.button("🗑️ 清空会话", use_container_width=True):
+            # 👇 这里必须缩进 (Tab 或 4个空格)
+            st.session_state.messages = []
+            st.session_state.last_query_draft = ""
+            st.session_state.is_interrupted = False
+            st.rerun()
+
+    # 🟢 这里的 for 循环必须退出 st.sidebar 的缩进 (向左回退)
+    # 这一行应该和上面的 with st.sidebar: 对齐
+    for msg_idx, msg in enumerate(st.session_state.messages):
+        with st.chat_message(msg["role"]):
+            if msg["type"] == "text":
+                st.markdown(msg["content"])
+            # ... 后面的代码 ...
 
     # 聊天记录渲染
     for msg_idx, msg in enumerate(st.session_state.messages):
@@ -763,6 +773,7 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
 
 
 
