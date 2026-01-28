@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore')
 st.set_page_config(
     page_title="ChatBI", 
     layout="wide", 
-    page_icon="-", 
+    page_icon="📊", 
     initial_sidebar_state="expanded"
 )
 
@@ -612,7 +612,8 @@ if df is not None:
                         }}
                         """
                         simple_resp = safe_generate_content(
-                            client, "gemini-3-pro-preview", simple_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
+                            # 🔴 修正模型名称
+                            client, "gemini-2.0-flash", simple_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
                         )
                         
                         # 使用 parse_response 安全解析，避免 Extra data 错误
@@ -696,7 +697,8 @@ if df is not None:
                         
                         输出 JSON: {{ "intent_analysis": "意图深度解析(Markdown)", "angles": [ {{"title": "分析角度标题", "description": "描述", "code": "df_sub = df[...]\nresult = df_sub..."}} ] }}
                         """
-                        response_plan = safe_generate_content(client, "gemini-3-pro-preview", prompt_plan)
+                        # 🔴 修正模型名称
+                        response_plan = safe_generate_content(client, "gemini-2.0-flash", prompt_plan)
                         reasoning_text, plan_json = parse_response(response_plan.text)
 
                     if plan_json and 'angles' in plan_json:
@@ -769,7 +771,8 @@ if df is not None:
                                 各角度发现: {all_findings}
                                 生成最终洞察 (Markdown)。严禁建议，仅陈述事实。
                                 """
-                                resp_final = safe_generate_content(client, "gemini-3-pro-preview", final_prompt)
+                                # 🔴 修正模型名称
+                                resp_final = safe_generate_content(client, "gemini-2.0-flash", final_prompt)
                                 insight_text = resp_final.text
                                 st.markdown(f'<div class="insight-box">{insight_text}</div>', unsafe_allow_html=True)
                                 
