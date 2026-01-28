@@ -573,7 +573,7 @@ if df is not None:
                     仅输出 JSON: {{"type": "simple" 或 "analysis" 或 "irrelevant"}}
                     """
                     router_resp = safe_generate_content(
-                        client, "gemini-2.0-flash", router_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
+                        client, "gemini-3-pro-preview", router_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
                     )
                     try: intent_type = json.loads(router_resp.text).get('type', 'analysis')
                     except: intent_type = 'analysis'
@@ -613,7 +613,7 @@ if df is not None:
                         """
                         simple_resp = safe_generate_content(
                             # 🔴 修正模型名称
-                            client, "gemini-2.0-flash", simple_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
+                            client, "gemini-3-pro-preview", simple_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
                         )
                         
                         # 使用 parse_response 安全解析，避免 Extra data 错误
@@ -698,7 +698,7 @@ if df is not None:
                         输出 JSON: {{ "intent_analysis": "意图深度解析(Markdown)", "angles": [ {{"title": "分析角度标题", "description": "描述", "code": "df_sub = df[...]\nresult = df_sub..."}} ] }}
                         """
                         # 🔴 修正模型名称
-                        response_plan = safe_generate_content(client, "gemini-2.0-flash", prompt_plan)
+                        response_plan = safe_generate_content(client, "gemini-3-pro-preview", prompt_plan)
                         reasoning_text, plan_json = parse_response(response_plan.text)
 
                     if plan_json and 'angles' in plan_json:
@@ -746,7 +746,7 @@ if df is not None:
                                             数据预览：\n{res_df.head(20).to_string()}
                                             要求：提炼趋势/异常，结合业务含义，语言专业。
                                             """
-                                            mini_resp = safe_generate_content(client, "gemini-2.0-flash", mini_prompt)
+                                            mini_resp = safe_generate_content(client, "gemini-3-pro-preview", mini_prompt)
                                             explanation = mini_resp.text
                                             st.markdown(f'<div class="mini-insight">💡 <b>深度解读:</b> {explanation}</div>', unsafe_allow_html=True)
                                         
@@ -772,7 +772,7 @@ if df is not None:
                                 生成最终洞察 (Markdown)。严禁建议，仅陈述事实。
                                 """
                                 # 🔴 修正模型名称
-                                resp_final = safe_generate_content(client, "gemini-2.0-flash", final_prompt)
+                                resp_final = safe_generate_content(client, "gemini-3-pro-preview", final_prompt)
                                 insight_text = resp_final.text
                                 st.markdown(f'<div class="insight-box">{insight_text}</div>', unsafe_allow_html=True)
                                 
@@ -789,3 +789,4 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
