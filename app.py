@@ -573,7 +573,7 @@ if df is not None:
                     仅输出 JSON: {{"type": "simple" 或 "analysis" 或 "irrelevant"}}
                     """
                     router_resp = safe_generate_content(
-                        client, "gemini-3-pro-preview", router_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
+                        client, "gemini-3-pro-flash-preview", router_prompt, config=types.GenerateContentConfig(response_mime_type="application/json")
                     )
                     try: intent_type = json.loads(router_resp.text).get('type', 'analysis')
                     except: intent_type = 'analysis'
@@ -789,4 +789,5 @@ if df is not None:
                 st.error(f"系统错误: {e}")
             finally:
                 stop_btn_placeholder.empty()
+
 
